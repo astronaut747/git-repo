@@ -1,4 +1,9 @@
-"""Generate a sample output equivalent to optimize_switching_params.m."""
+"""Generate a sample output equivalent to optimize_switching_params.m.
+
+Also writes full sweep results to docs/sweep_results.csv.
+"""
+
+from csv import DictWriter
 
 
 def linspace(start, stop, num):
@@ -52,6 +57,7 @@ def main():
     gamma = 2.21e5
     time = linspace(0.0, 5e-9, 1000)
     je_target = 5e10
+    target_switching_time = 1e-9
 
     best = {
         "Ku": float("nan"),
@@ -59,7 +65,10 @@ def main():
         "PP": float("nan"),
         "D": float("nan"),
         "switching_time": float("inf"),
+        "error_to_target": float("inf"),
     }
+
+    results = []
 
     for d in d_range:
         for ku in ku_range:
@@ -69,18 +78,42 @@ def main():
                     switching_time = find_switching_time(
                         je_target, time, hk, mmss, alpha, gamma, a, pp, d
                     )
-                    if abs(switching_time - 1e-9) < abs(best["switching_time"] - 1e-9):
-                        best = {
-                            "Ku": ku,
-                            "MMss": mmss,
-                            "PP": pp,
-                            "D": d,
-                            "switching_time": switching_time,
-                        }
+                    err = abs(switching_time - target_switching_time)
+
+                    entry = {
+                        "Ku": ku,
+                        "MMss": mmss,
+                        "PP": pp,
+                        "D": d,
+                        "switching_time": switching_time,
+                        "error_to_target": err,
+                    }
+                    results.append(entry)
+
+                    if err < best["error_to_target"]:
+                        best = entry
+
+    results.sort(key=lambda row: row["error_to_target"])
+
+    with open("docs/sweep_results.csv", "w", newline="", encoding="utf-8") as file:
+        writer = DictWriter(
+            file,
+            fieldnames=["Ku", "MMss", "PP", "D", "switching_time", "error_to_target"],
+        )
+        writer.writeheader()
+        writer.writerows(results)
 
     print("Best parameters found:")
-    for key in ["Ku", "MMss", "PP", "D", "switching_time"]:
+    for key in ["Ku", "MMss", "PP", "D", "switching_time", "error_to_target"]:
         print(f"{key}: {best[key]:.12g}")
+
+    print("\nTop 5 candidates:")
+    for idx, row in enumerate(results[:5], start=1):
+        print(
+            f"{idx}. Ku={row['Ku']:.6g}, MMss={row['MMss']:.6g}, "
+            f"PP={row['PP']:.6g}, D={row['D']:.6g}, "
+            f"t={row['switching_time']:.12g}, err={row['error_to_target']:.12g}"
+        )
 
 
 if __name__ == "__main__":
