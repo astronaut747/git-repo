@@ -1,0 +1,6 @@
+Best parameters found:
+Ku: 711111.111111
+MMss: 900000
+PP: 0.7
+D: 3e-08
+switching_time: 1.001001001e-09
